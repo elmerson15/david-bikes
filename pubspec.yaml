@@ -1,0 +1,46 @@
+name: bikes
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.3
+  cloud_firestore: ^5.6.7
+  provider: ^6.1.5
+  pdf: ^3.11.0
+  printing: ^5.14.0
+  path_provider: ^2.1.5
+  share_plus: ^11.0.0
+  url_launcher: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo.jpg"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/logo.jpg
+    - assets/splash.jpg
+    - assets/watermark.png
+    - assets/watermark.jpg
+    - assets/fonts/NotoSansTamil-Regular.ttf
+    - assets/fonts/NotoSansTamil-Bold.ttf
+    - assets/fonts/Latha.ttf
