@@ -444,6 +444,17 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                             Expanded(
                               child: TextField(
                                 controller: services[index]['service'],
+                                textCapitalization: TextCapitalization.characters,
+
+                                onChanged: (value) {
+                                  services[index]['service']!.value = TextEditingValue(
+                                    text: value.toUpperCase(),
+                                    selection: TextSelection.collapsed(
+                                      offset: value.length,
+                                    ),
+                                  );
+                                },
+
                                 style: const TextStyle(color: _textPrimary),
                                 decoration: compactInputDecoration(
                                   hint: 'Service name',
