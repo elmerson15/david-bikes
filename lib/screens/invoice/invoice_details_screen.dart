@@ -24,6 +24,15 @@ class InvoiceDetailsScreen extends StatelessWidget {
     required this.vehicleNumber,
   });
 
+  static const _bg          = Color(0xFF0F172A);
+  static const _surface     = Color(0xFF1E293B);
+  static const _border      = Color(0xFF334155);
+  static const _amber       = Color(0xFFF7A824);
+  static const _amberDim    = Color(0xFF1A1208);
+  static const _green       = Color(0xFF81C784);
+  static const _textMuted   = Color(0xFF94A3B8);
+  static const _cyan        = Color(0xFF00BCD4);
+
   @override
   Widget build(BuildContext context) {
     final data  = invoice.data() as Map<String, dynamic>;
@@ -33,27 +42,29 @@ class InvoiceDetailsScreen extends StatelessWidget {
     final nextOilChange = data.containsKey('nextOilChange') ? '${invoice['nextOilChange']}' : 'Not Added';
     final kmTravelled   = data.containsKey('kmTravelled')   ? '${invoice['kmTravelled']}'   : '-';
 
-    // Compute total for display
-    double total = 0;
-    for (final item in items) {
-      final qty  = item['quantity'] ?? 1;
-      final rate = item['rate'] ?? item['amount'] ?? 0;
-      if (qty is num && rate is num) total += qty * rate;
-    }
+    // Payment fields
+    final int totalAmount   = (data['totalAmount']   as num?)?.toInt() ?? 0;
+    final int advanceAmount = (data['advanceAmount'] as num?)?.toInt() ?? 0;
+    final int balanceDue    = (data['balanceDue']    as num?)?.toInt() ?? (totalAmount - advanceAmount);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: _bg,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'INVOICE DETAILS',
           style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1),
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: _border, height: 0.5),
         ),
       ),
       body: Padding(
@@ -62,7 +73,7 @@ class InvoiceDetailsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // ── Share button ────────────────────────────────────────────────
+            // ── Share button ──────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -73,39 +84,51 @@ class InvoiceDetailsScreen extends StatelessWidget {
                   phone:         phone,
                   vehicleNumber: vehicleNumber,
                 ).generateAndShare(),
-                icon:  const Icon(Icons.share),
+                icon:  const Icon(Icons.share_rounded),
                 label: const Text('SHARE BILL'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00BCD4),
+                  backgroundColor: _cyan,
                   foregroundColor: Colors.white,
                   textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 24),
 
-            // ── Customer info ───────────────────────────────────────────────
-            Text(customerName,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold)),
+            // ── Customer info ─────────────────────────────────────────────
+            Text(
+              customerName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 6),
-            Text(phone,
-                style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              phone,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(vehicleNumber,
-                style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              vehicleNumber,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
 
             const SizedBox(height: 16),
 
@@ -117,7 +140,7 @@ class InvoiceDetailsScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // ── Items table header ──────────────────────────────────────────
+            // ── Items table header ────────────────────────────────────────
             const Row(
               children: [
                 Expanded(flex: 3, child: _HeaderCell('Service')),
@@ -128,7 +151,7 @@ class InvoiceDetailsScreen extends StatelessWidget {
             ),
             const Divider(color: Colors.white24),
 
-            // ── Item rows ───────────────────────────────────────────────────
+            // ── Item rows ─────────────────────────────────────────────────
             Expanded(
               child: ListView.builder(
                 itemCount: items.length,
@@ -144,10 +167,13 @@ class InvoiceDetailsScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       children: [
-                        Expanded(flex: 3, child: _rowText(item['service'] ?? '')),
+                        Expanded(
+                          flex: 3,
+                          child: _rowText(item['service'] ?? ''),
+                        ),
                         Expanded(child: _rowText('$qty')),
-                        Expanded(child: _rowText('Rs.$rate')),
-                        Expanded(child: _rowText('Rs.$amount')),
+                        Expanded(child: _rowText('₹$rate')),
+                        Expanded(child: _rowText('₹$amount')),
                       ],
                     ),
                   );
@@ -157,15 +183,121 @@ class InvoiceDetailsScreen extends StatelessWidget {
 
             const Divider(color: Colors.white24),
 
-            // ── Total ───────────────────────────────────────────────────────
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'Total : Rs.${total.toStringAsFixed(0)}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold),
+            // ── Payment summary card ──────────────────────────────────────
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                color: _amberDim,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _amber.withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Total Amount
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'TOTAL AMOUNT',
+                        style: TextStyle(
+                          color: Color(0xFF9A7E4A),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      Text(
+                        '₹$totalAmount',
+                        style: const TextStyle(
+                          color: _amber,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (advanceAmount > 0) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      height: 0.5,
+                      color: _amber.withOpacity(0.2),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Advance Paid
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'ADVANCE PAID',
+                          style: TextStyle(
+                            color: Color(0xFF9A7E4A),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        Text(
+                          '- ₹$advanceAmount',
+                          style: const TextStyle(
+                            color: _green,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+                    Container(
+                      height: 0.5,
+                      color: _amber.withOpacity(0.2),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Balance Due
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'BALANCE DUE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        Text(
+                          '₹$balanceDue',
+                          style: TextStyle(
+                            color: balanceDue <= 0 ? _green : _amber,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 4),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Full amount due',
+                        style: TextStyle(
+                          color: Color(0xFF6B5A3A),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
@@ -177,7 +309,10 @@ class InvoiceDetailsScreen extends StatelessWidget {
   static Widget _infoText(String text) => Text(
     text,
     style: const TextStyle(
-        color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+      color: Colors.white,
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
+    ),
   );
 
   static Widget _rowText(String text) =>
@@ -193,7 +328,10 @@ class _HeaderCell extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     label,
     style: const TextStyle(
-        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+      color: Colors.white,
+      fontWeight: FontWeight.bold,
+      fontSize: 15,
+    ),
   );
 }
 

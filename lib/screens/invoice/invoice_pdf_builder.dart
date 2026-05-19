@@ -5,13 +5,6 @@
 //   • Row model building
 //   • pw.MultiPage construction  (header / footer / body)
 //   • Save to temp file + share via share_plus
-//
-// Usage:
-//   final builder = InvoicePdfBuilder(
-//     invoice: snapshot,
-//     customerName: '...', phone: '...', vehicleNumber: '...',
-//   );
-//   await builder.generateAndShare();
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'dart:io';
@@ -54,9 +47,14 @@ class InvoicePdfBuilder {
     final nextOilChange = data.containsKey('nextOilChange') ? '${invoice['nextOilChange']}' : 'Not Added';
     final kmTravelled   = data.containsKey('kmTravelled')   ? '${invoice['kmTravelled']}'   : '-';
 
+    // ── Payment fields ──────────────────────────────────────────────────────
+    final int totalAmount   = (data['totalAmount']   as num?)?.toInt() ?? 0;
+    final int advanceAmount = (data['advanceAmount'] as num?)?.toInt() ?? 0;
+    final int balanceDue    = (data['balanceDue']    as num?)?.toInt() ?? (totalAmount - advanceAmount);
+
     // ── Load assets ─────────────────────────────────────────────────────────
     final logoImage      = await _loadLogo();
-    final watermarkBytes = await _loadWatermark();
+    final watermarkImage = await _loadWatermarkImage();
     final verseImage     = await _renderVerseAsImage(
       '"உன் வழிகளில் எல்லாம் உன்னை காப்பேன்" - இயேசு',
     );
@@ -68,13 +66,13 @@ class InvoicePdfBuilder {
 
     // ── Build row list ──────────────────────────────────────────────────────
     final rows = _buildRows(items);
-    final total = rows.fold<double>(
+    final double computedTotal = rows.fold<double>(
         0, (sum, r) => sum + (double.tryParse(r.amount) ?? 0));
 
-    // ── Watermark PdfImage ──────────────────────────────────────────────────
-    final PdfImage? wmPdfImage = watermarkBytes != null
-        ? PdfImage.jpeg(pdf.document, image: watermarkBytes)
-        : null;
+    // Use Firestore totalAmount if stored, otherwise computed
+    final double pdfTotal = totalAmount > 0
+        ? totalAmount.toDouble()
+        : computedTotal;
 
     // ── Shared column widths ────────────────────────────────────────────────
     final columnWidths = <int, pw.TableColumnWidth>{
@@ -94,14 +92,15 @@ class InvoicePdfBuilder {
         // ── Header ─────────────────────────────────────────────────────────
         header: (pw.Context ctx) => ctx.pageNumber == 1
             ? _buildPage1Header(
-          bold:          bold,
-          normal:        normal,
-          logoImage:     logoImage,
-          verseImage:    verseImage,
-          columnWidths:  columnWidths,
-          date:          date,
-          nextOilChange: nextOilChange,
-          kmTravelled:   kmTravelled,
+          bold:           bold,
+          normal:         normal,
+          logoImage:      logoImage,
+          watermarkImage: watermarkImage,
+          verseImage:     verseImage,
+          columnWidths:   columnWidths,
+          date:           date,
+          nextOilChange:  nextOilChange,
+          kmTravelled:    kmTravelled,
         )
             : _buildContinuationHeader(ctx, bold, normal, columnWidths),
 
@@ -109,13 +108,18 @@ class InvoicePdfBuilder {
         footer: (pw.Context ctx) =>
         (!ctx.pagesCount.isNaN && ctx.pageNumber == ctx.pagesCount)
             ? _buildLastPageFooter(
-            bold: bold, oblique: oblique,
-            columnWidths: columnWidths, total: total)
+          bold:          bold,
+          oblique:       oblique,
+          columnWidths:  columnWidths,
+          total:         pdfTotal,
+          advanceAmount: advanceAmount,
+          balanceDue:    balanceDue,
+        )
             : pw.SizedBox.shrink(),
 
         // ── Body: service rows ──────────────────────────────────────────────
         build: (pw.Context ctx) => [
-          _buildItemsTable(rows, columnWidths, normal, bold, wmPdfImage),
+          _buildItemsTable(rows, columnWidths, normal, bold),
         ],
       ),
     );
@@ -145,10 +149,11 @@ class InvoicePdfBuilder {
     }
   }
 
-  Future<Uint8List?> _loadWatermark() async {
+  // Returns a pw.ImageProvider so it can be used directly in pw.Image
+  Future<pw.ImageProvider?> _loadWatermarkImage() async {
     try {
       final ByteData d = await rootBundle.load('assets/watermark.jpg');
-      return d.buffer.asUint8List();
+      return pw.MemoryImage(d.buffer.asUint8List());
     } catch (_) {
       return null;
     }
@@ -206,6 +211,7 @@ class InvoicePdfBuilder {
     required pw.Font bold,
     required pw.Font normal,
     required pw.ImageProvider? logoImage,
+    required pw.ImageProvider? watermarkImage,
     required pw.ImageProvider verseImage,
     required Map<int, pw.TableColumnWidth> columnWidths,
     required String date,
@@ -225,7 +231,7 @@ class InvoicePdfBuilder {
           child: pw.Image(verseImage, width: 320),
         ),
 
-        // Logo + shop title
+        // Logo + shop title + watermark top-right
         pw.Container(
           color: kPdfWhite,
           padding: const pw.EdgeInsets.symmetric(horizontal: 30, vertical: 14),
@@ -233,7 +239,7 @@ class InvoicePdfBuilder {
           child: pw.Stack(
             alignment: pw.Alignment.center,
             children: [
-              // Centered title
+              // Centered title block
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
@@ -241,20 +247,30 @@ class InvoicePdfBuilder {
                     "DAVID'S BIKES",
                     textAlign: pw.TextAlign.center,
                     style: pw.TextStyle(
-                        font: bold, fontSize: 22, color: kPdfBlack,
-                        letterSpacing: 1.2),
+                      font: bold,
+                      fontSize: 22,
+                      color: kPdfBlack,
+                      letterSpacing: 1.2,
+                    ),
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
                     'BIKE SERVICE & MAINTENANCE',
                     style: pw.TextStyle(
-                        font: normal, fontSize: 10, color: kPdfCyan,
-                        letterSpacing: 0.8),
+                      font: normal,
+                      fontSize: 10,
+                      color: kPdfCyan,
+                      letterSpacing: 0.8,
+                    ),
                   ),
                   pw.SizedBox(height: 6),
                   pw.Text(
                     'Phone : 83443 41912',
-                    style: pw.TextStyle(font: bold, fontSize: 8, color: kPdfBlack),
+                    style: pw.TextStyle(
+                      font: bold,
+                      fontSize: 8,
+                      color: kPdfBlack,
+                    ),
                   ),
                 ],
               ),
@@ -263,10 +279,27 @@ class InvoicePdfBuilder {
                 pw.Positioned(
                   left: 0,
                   child: pw.Container(
-                    width: 70, height: 70,
+                    width: 70,
+                    height: 70,
                     child: pw.ClipRRect(
-                      horizontalRadius: 6, verticalRadius: 6,
+                      horizontalRadius: 6,
+                      verticalRadius: 6,
                       child: pw.Image(logoImage, fit: pw.BoxFit.cover),
+                    ),
+                  ),
+                ),
+              // Watermark pinned top-right (faint)
+              if (watermarkImage != null)
+                pw.Positioned(
+                  right: 0,
+                  top: 0,
+                  child: pw.Opacity(
+                    opacity: 0.8,
+                    child: pw.Image(
+                      watermarkImage,
+                      width: 70,
+                      height: 70,
+                      fit: pw.BoxFit.contain,
                     ),
                   ),
                 ),
@@ -282,7 +315,11 @@ class InvoicePdfBuilder {
           child: pw.Text(
             'INVOICE',
             style: pw.TextStyle(
-                font: bold, fontSize: 13, color: kPdfCyan, letterSpacing: 3),
+              font: bold,
+              fontSize: 13,
+              color: kPdfCyan,
+              letterSpacing: 3,
+            ),
           ),
         ),
 
@@ -305,8 +342,8 @@ class InvoicePdfBuilder {
                 pdfInfoCell('VEHICLE NO :  $vehicleNumber', bold, fontSize: 9),
               ]),
               pw.TableRow(children: [
-                pdfInfoCell('KM TRAVELLED :  $kmTravelled km',       bold, fontSize: 9),
-                pdfInfoCell('NEXT OIL CHANGE :  $nextOilChange km',  bold, fontSize: 9),
+                pdfInfoCell('KM TRAVELLED :  $kmTravelled km',      bold, fontSize: 9),
+                pdfInfoCell('NEXT OIL CHANGE :  $nextOilChange km', bold, fontSize: 9),
               ]),
             ],
           ),
@@ -339,16 +376,21 @@ class InvoicePdfBuilder {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                "DAVID'S BIKES  •  INVOICE CONTINUED",
+                "DAVID'S BIKES  -  INVOICE CONTINUED",
                 style: pw.TextStyle(
-                    font: bold, fontSize: 9, color: kPdfCyan,
-                    letterSpacing: 1.0),
+                  font: bold,
+                  fontSize: 9,
+                  color: kPdfCyan,
+                  letterSpacing: 1.0,
+                ),
               ),
               pw.Text(
                 'Page ${ctx.pageNumber}',
                 style: pw.TextStyle(
-                    font: normal, fontSize: 9,
-                    color: const PdfColor.fromInt(0xFF888888)),
+                  font: normal,
+                  fontSize: 9,
+                  color: const PdfColor.fromInt(0xFF888888),
+                ),
               ),
             ],
           ),
@@ -366,11 +408,15 @@ class InvoicePdfBuilder {
     required pw.Font oblique,
     required Map<int, pw.TableColumnWidth> columnWidths,
     required double total,
+    required int advanceAmount,
+    required int balanceDue,
   }) {
+    const kPdfGreen = PdfColor.fromInt(0xFF81C784);
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        // Total row (closes the table border)
+        // ── Total row (closes the table border) ───────────────────────────
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(horizontal: 8),
           child: pw.Table(
@@ -397,7 +443,10 @@ class InvoicePdfBuilder {
                       'TOTAL',
                       textAlign: pw.TextAlign.right,
                       style: pw.TextStyle(
-                          font: bold, fontSize: 10, color: kPdfWhite),
+                        font: bold,
+                        fontSize: 10,
+                        color: kPdfWhite,
+                      ),
                     ),
                   ),
                   pw.Padding(
@@ -407,7 +456,10 @@ class InvoicePdfBuilder {
                       'Rs. ${total.toStringAsFixed(0)}',
                       textAlign: pw.TextAlign.right,
                       style: pw.TextStyle(
-                          font: bold, fontSize: 10, color: kPdfWhite),
+                        font: bold,
+                        fontSize: 10,
+                        color: kPdfWhite,
+                      ),
                     ),
                   ),
                 ],
@@ -416,26 +468,112 @@ class InvoicePdfBuilder {
           ),
         ),
 
-        pw.SizedBox(height: 10),
+        pw.SizedBox(height: 8),
 
-        // Rupees in words
+        // ── Advance Paid & Balance Due (only when advance > 0) ────────────
+        if (advanceAmount > 0) ...[
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 20),
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: kPdfBlack, width: 0.8),
+                borderRadius:
+                const pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Column(
+                children: [
+                  // Advance Paid row
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom:
+                        pw.BorderSide(color: kPdfBlack, width: 0.5),
+                      ),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'ADVANCE PAID',
+                          style: pw.TextStyle(
+                            font: bold,
+                            fontSize: 9,
+                            color: kPdfBlack,
+                          ),
+                        ),
+                        pw.Text(
+                          '- Rs. $advanceAmount',
+                          style: pw.TextStyle(
+                            font: bold,
+                            fontSize: 9,
+                            color: kPdfGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Balance Due row
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    decoration: const pw.BoxDecoration(color: kPdfBlack),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'BALANCE DUE',
+                          style: pw.TextStyle(
+                            font: bold,
+                            fontSize: 11,
+                            color: kPdfWhite,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        pw.Text(
+                          'Rs. $balanceDue',
+                          style: pw.TextStyle(
+                            font: bold,
+                            fontSize: 13,
+                            color: balanceDue <= 0 ? kPdfGreen : kPdfAmber,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          pw.SizedBox(height: 8),
+        ],
+
+        // ── Rupees in words ───────────────────────────────────────────────
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(horizontal: 20),
           child: pw.Container(
             decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: kPdfBlack, width: 0.8)),
+              border: pw.Border.all(color: kPdfBlack, width: 0.8),
+            ),
             padding: const pw.EdgeInsets.symmetric(
                 horizontal: 10, vertical: 6),
             child: pw.Text(
-              'RUPEES IN WORDS :  ${amountInWords(total)}',
-              style: pw.TextStyle(font: bold, fontSize: 8, color: kPdfBlack),
+              advanceAmount > 0
+                  ? 'BALANCE IN WORDS :  ${amountInWords(balanceDue.toDouble())}'
+                  : 'RUPEES IN WORDS :  ${amountInWords(total)}',
+              style: pw.TextStyle(
+                font: bold,
+                fontSize: 8,
+                color: kPdfBlack,
+              ),
             ),
           ),
         ),
 
         pw.SizedBox(height: 16),
 
-        // Signature
+        // ── Signature ─────────────────────────────────────────────────────
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(
               horizontal: 20, vertical: 10),
@@ -448,7 +586,10 @@ class InvoicePdfBuilder {
                   pw.Text(
                     'Thavithu Abraham',
                     style: pw.TextStyle(
-                        font: oblique, fontSize: 13, color: kPdfBlack),
+                      font: oblique,
+                      fontSize: 13,
+                      color: kPdfBlack,
+                    ),
                   ),
                   pw.SizedBox(height: 2),
                   pw.Container(width: 120, height: 0.8, color: kPdfBlack),
@@ -456,7 +597,10 @@ class InvoicePdfBuilder {
                   pw.Text(
                     'SIGNATURE',
                     style: pw.TextStyle(
-                        font: bold, fontSize: 8, color: kPdfBlack),
+                      font: bold,
+                      fontSize: 8,
+                      color: kPdfBlack,
+                    ),
                   ),
                 ],
               ),
@@ -470,20 +614,15 @@ class InvoicePdfBuilder {
     );
   }
 
-  // ── Items Table Body ──────────────────────────────────────────────────────
+  // ── Items Table Body (no watermark — moved to header) ─────────────────────
 
   pw.Widget _buildItemsTable(
       List<InvoiceRow> rows,
       Map<int, pw.TableColumnWidth> columnWidths,
       pw.Font normal,
       pw.Font bold,
-      PdfImage? wmPdfImage,
       ) {
-    const pageW  = 595.28;   // PdfPageFormat.a4.width  in points
-    const pageH  = 841.89;   // PdfPageFormat.a4.height in points
-    const wmSize = 300.0;
-
-    final table = pw.Padding(
+    return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8),
       child: pw.Table(
         border: pw.TableBorder(
@@ -501,35 +640,15 @@ class InvoicePdfBuilder {
           return pw.TableRow(
             decoration: pw.BoxDecoration(color: bg),
             children: [
-              pdfTableCell(r.sno,            normal, bg: bg, align: pw.TextAlign.center),
-              pdfTableCell(r.desc,           normal, bg: bg),
-              pdfTableCell(r.qty,            normal, bg: bg, align: pw.TextAlign.center),
-              pdfTableCell('Rs. ${r.rate}',  normal, bg: bg, align: pw.TextAlign.center),
-              pdfTableCell('Rs. ${r.amount}', bold,  bg: bg, align: pw.TextAlign.right),
+              pdfTableCell(r.sno,             normal, bg: bg, align: pw.TextAlign.center),
+              pdfTableCell(r.desc,            normal, bg: bg),
+              pdfTableCell(r.qty,             normal, bg: bg, align: pw.TextAlign.center),
+              pdfTableCell('Rs. ${r.rate}',   normal, bg: bg, align: pw.TextAlign.center),
+              pdfTableCell('Rs. ${r.amount}', bold,   bg: bg, align: pw.TextAlign.right),
             ],
           );
         }).toList(),
       ),
-    );
-
-    // Overlay watermark behind table rows
-    if (wmPdfImage == null) return table;
-
-    return pw.CustomPaint(
-      size: const PdfPoint(pageW, pageH),
-      painter: (PdfGraphics canvas, PdfPoint size) {
-        canvas.saveContext();
-        canvas.setGraphicState(PdfGraphicState(opacity: 0.08));
-        canvas.drawImage(
-          wmPdfImage,
-          (pageW - wmSize) / 2,
-          (pageH - wmSize) / 2,
-          wmSize, wmSize,
-        );
-        canvas.restoreContext();
-      },
-      foregroundPainter: (_, __) {},
-      child: table,
     );
   }
 }

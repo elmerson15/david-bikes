@@ -12,6 +12,7 @@ const kPdfCyan   = PdfColor.fromInt(0xFF00BCD4);
 const kPdfBlack  = PdfColors.black;
 const kPdfWhite  = PdfColors.white;
 const kPdfGrey50 = PdfColor.fromInt(0xFFF7F7F7);
+const kPdfAmber = PdfColor.fromInt(0xFFF7A824);
 
 // ── Row Model ─────────────────────────────────────────────────────────────────
 class InvoiceRow {

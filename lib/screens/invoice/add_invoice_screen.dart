@@ -16,11 +16,13 @@ class AddInvoiceScreen extends StatefulWidget {
 class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   final kmController = TextEditingController();
   final nextOilChangeController = TextEditingController();
+  final advanceController = TextEditingController();
 
   List<Map<String, TextEditingController>> services = [];
 
   bool isLoading = false;
   int totalAmount = 0;
+  int advanceAmount = 0;
 
   static const _bg = Color(0xFF0F0F0F);
   static const _surface = Color(0xFF141414);
@@ -40,6 +42,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   void dispose() {
     kmController.dispose();
     nextOilChangeController.dispose();
+    advanceController.dispose();
 
     for (var item in services) {
       item['service']?.dispose();
@@ -187,6 +190,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
         'nextOilChange': nextOilChangeController.text.trim(),
         'items': invoiceItems,
         'totalAmount': totalAmount,
+        'advanceAmount': advanceAmount,
+        'balanceDue': totalAmount - advanceAmount,
         'createdAt': Timestamp.now(),
         'date': DateTime.now().toString().substring(0, 10),
       });
@@ -243,8 +248,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
           : null,
       filled: true,
       fillColor: _surface,
-      contentPadding:
-      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: _border),
@@ -262,7 +266,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     );
   }
 
-  /// Compact input decoration used inside service card rows
   InputDecoration compactInputDecoration({required String hint}) {
     return InputDecoration(
       hintText: hint,
@@ -272,8 +275,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       ),
       filled: true,
       fillColor: Color(0xFF1C1C1C),
-      contentPadding:
-      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: _border),
@@ -290,6 +292,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final balanceDue = totalAmount - advanceAmount;
+
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -384,7 +388,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
             const SizedBox(height: 12),
 
             /// KM FIELD
-            /// KM FIELD
             TextField(
               controller: kmController,
               keyboardType: TextInputType.number,
@@ -422,7 +425,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
 
             const SizedBox(height: 10),
 
-            /// SERVICE ROWS — 2-line card layout
+            /// SERVICE ROWS
             Column(
               children: List.generate(
                 services.length,
@@ -444,17 +447,17 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                             Expanded(
                               child: TextField(
                                 controller: services[index]['service'],
-                                textCapitalization: TextCapitalization.characters,
-
+                                textCapitalization:
+                                TextCapitalization.characters,
                                 onChanged: (value) {
-                                  services[index]['service']!.value = TextEditingValue(
-                                    text: value.toUpperCase(),
-                                    selection: TextSelection.collapsed(
-                                      offset: value.length,
-                                    ),
-                                  );
+                                  services[index]['service']!.value =
+                                      TextEditingValue(
+                                        text: value.toUpperCase(),
+                                        selection: TextSelection.collapsed(
+                                          offset: value.length,
+                                        ),
+                                      );
                                 },
-
                                 style: const TextStyle(color: _textPrimary),
                                 decoration: compactInputDecoration(
                                   hint: 'Service name',
@@ -620,55 +623,146 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
               ),
             ),
 
+            const SizedBox(height: 28),
+
+            /// PAYMENT SECTION LABEL
+            const Text(
+              'PAYMENT',
+              style: TextStyle(
+                color: _textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            /// ADVANCE PAYMENT FIELD
+            TextField(
+              controller: advanceController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: _textPrimary),
+              onChanged: (val) {
+                setState(() {
+                  advanceAmount = int.tryParse(val.trim()) ?? 0;
+                });
+              },
+              decoration: inputDecoration(
+                hint: 'Advance Payment (₹)',
+                icon: Icons.currency_rupee_rounded,
+              ),
+            ),
+
             const SizedBox(height: 20),
 
             /// TOTAL CARD
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 18,
-              ),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               decoration: BoxDecoration(
                 color: _amberDim,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: _amber.withOpacity(0.3),
-                ),
+                border: Border.all(color: _amber.withOpacity(0.3)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
+                  /// Total Amount row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
                         'TOTAL AMOUNT',
                         style: TextStyle(
                           color: Color(0xFF9A7E4A),
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.0,
                         ),
                       ),
-                      SizedBox(height: 2),
                       Text(
+                        '₹$totalAmount',
+                        style: const TextStyle(
+                          color: _amber,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (advanceAmount > 0) ...[
+                    const SizedBox(height: 12),
+                    Container(height: 0.5, color: _amber.withOpacity(0.2)),
+                    const SizedBox(height: 12),
+
+                    /// Advance Paid row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'ADVANCE PAID',
+                          style: TextStyle(
+                            color: Color(0xFF9A7E4A),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        Text(
+                          '- ₹$advanceAmount',
+                          style: const TextStyle(
+                            color: Color(0xFF81C784),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+                    Container(height: 0.5, color: _amber.withOpacity(0.2)),
+                    const SizedBox(height: 12),
+
+                    /// Balance Due row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'BALANCE DUE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        Text(
+                          '₹$balanceDue',
+                          style: TextStyle(
+                            color: balanceDue <= 0
+                                ? const Color(0xFF81C784)
+                                : _amber,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 4),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
                         'All services combined',
                         style: TextStyle(
                           color: Color(0xFF6B5A3A),
                           fontSize: 11,
                         ),
                       ),
-                    ],
-                  ),
-                  Text(
-                    '₹$totalAmount',
-                    style: const TextStyle(
-                      color: _amber,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
