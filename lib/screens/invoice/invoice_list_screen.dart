@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'add_invoice_screen.dart';
 import 'invoice_details_screen.dart';
 
 class InvoiceListScreen extends StatelessWidget {
@@ -17,12 +18,12 @@ class InvoiceListScreen extends StatelessWidget {
     required this.vehicleNumber,
   });
 
-  static const _bg = Color(0xFF0F0F0F);
-  static const _surface = Color(0xFF141414);
-  static const _border = Color(0xFF222222);
-  static const _amber = Color(0xFFF7A824);
+  static const _bg          = Color(0xFF0F0F0F);
+  static const _surface     = Color(0xFF141414);
+  static const _border      = Color(0xFF222222);
+  static const _amber       = Color(0xFFF7A824);
   static const _textPrimary = Color(0xFFE0E0E0);
-  static const _textMuted = Color(0xFF555555);
+  static const _textMuted   = Color(0xFF555555);
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +50,7 @@ class InvoiceListScreen extends StatelessWidget {
             ),
             Text(
               vehicleNumber,
-              style: const TextStyle(
-                color: _textMuted,
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: _textMuted, fontSize: 11),
             ),
           ],
         ),
@@ -81,7 +79,7 @@ class InvoiceListScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 64,
+                    width:  64,
                     height: 64,
                     decoration: BoxDecoration(
                       color: _surface,
@@ -117,17 +115,17 @@ class InvoiceListScreen extends StatelessWidget {
             itemCount: invoices.length,
             itemBuilder: (context, index) {
               final invoice = invoices[index];
-              final date = invoice.data().toString().contains('date')
+              final date    = invoice.data().toString().contains('date')
                   ? invoice['date']
                   : 'No Date';
 
               return _InvoiceCard(
-                invoice: invoice,
-                date: date,
+                invoice:      invoice,
+                date:         date,
                 customerName: customerName,
-                phone: phone,
+                phone:        phone,
                 vehicleNumber: vehicleNumber,
-                vehicleId: vehicleId,
+                vehicleId:    vehicleId,
               );
             },
           );
@@ -154,13 +152,11 @@ class _InvoiceCard extends StatelessWidget {
     required this.vehicleId,
   });
 
-  static const _bg = Color(0xFF0F0F0F);
-  static const _surface = Color(0xFF141414);
-  static const _border = Color(0xFF222222);
-  static const _amber = Color(0xFFF7A824);
-  static const _amberDim = Color(0xFF1A1208);
-  static const _textPrimary = Color(0xFFE0E0E0);
-  static const _textMuted = Color(0xFF555555);
+  static const _surface     = Color(0xFF141414);
+  static const _border      = Color(0xFF222222);
+  static const _amber       = Color(0xFFF7A824);
+  static const _amberDim    = Color(0xFF1A1208);
+  static const _textMuted   = Color(0xFF555555);
 
   void _showDeleteDialog(BuildContext context) {
     showDialog(
@@ -206,6 +202,19 @@ class _InvoiceCard extends StatelessWidget {
     );
   }
 
+  void _openEditScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddInvoiceScreen(
+          vehicleId:    vehicleId,
+          invoiceId:    invoice.id,                          // Firestore auto-generated ID
+          existingData: invoice.data() as Map<String, dynamic>,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -218,15 +227,15 @@ class _InvoiceCard extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (_) => InvoiceDetailsScreen(
-                invoice: invoice,
-                customerName: customerName,
-                phone: phone,
+                invoice:       invoice,
+                customerName:  customerName,
+                phone:         phone,
                 vehicleNumber: vehicleNumber,
               ),
             ),
           ),
           borderRadius: BorderRadius.circular(18),
-          splashColor: Colors.white.withOpacity(0.03),
+          splashColor:    Colors.white.withOpacity(0.03),
           highlightColor: Colors.white.withOpacity(0.02),
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -238,31 +247,26 @@ class _InvoiceCard extends StatelessWidget {
               children: [
                 /// ICON
                 Container(
-                  width: 46,
+                  width:  46,
                   height: 46,
                   decoration: BoxDecoration(
                     color: _amberDim,
                     borderRadius: BorderRadius.circular(13),
-                    border: Border.all(
-                        color: _amber.withOpacity(0.25)),
+                    border: Border.all(color: _amber.withOpacity(0.25)),
                   ),
-                  child: const Icon(
-                    Icons.receipt_long_rounded,
-                    color: _amber,
-                    size: 22,
-                  ),
+                  child: const Icon(Icons.receipt_long_rounded,
+                      color: _amber, size: 22),
                 ),
 
                 const SizedBox(width: 14),
 
-                /// INFO
                 /// INFO
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Rs. ${invoice['totalAmount']}',
+                        '₹${invoice['totalAmount']}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 17,
@@ -273,21 +277,21 @@ class _InvoiceCard extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(Icons.speed_rounded,
-                              color: Colors.white, size: 13),       // ← changed
+                              color: Colors.white, size: 13),
                           const SizedBox(width: 4),
                           Text(
                             '${invoice['kmTravelled']} km',
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 12), // ← changed
+                                color: Colors.white, fontSize: 12),
                           ),
                           const SizedBox(width: 12),
                           const Icon(Icons.calendar_today_rounded,
-                              color: Colors.white, size: 12),       // ← changed
+                              color: Colors.white, size: 12),
                           const SizedBox(width: 4),
                           Text(
                             date,
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 12), // ← changed
+                                color: Colors.white, fontSize: 12),
                           ),
                         ],
                       ),
@@ -299,10 +303,28 @@ class _InvoiceCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Edit button
+                    GestureDetector(
+                      onTap: () => _openEditScreen(context),
+                      child: Container(
+                        width:  36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: _amber.withOpacity(0.25)),
+                        ),
+                        child: const Icon(Icons.edit_rounded,
+                            color: _amber, size: 17),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Delete button
                     GestureDetector(
                       onTap: () => _showDeleteDialog(context),
                       child: Container(
-                        width: 36,
+                        width:  36,
                         height: 36,
                         decoration: BoxDecoration(
                           color: const Color(0xFFE57373).withOpacity(0.1),
@@ -310,11 +332,8 @@ class _InvoiceCard extends StatelessWidget {
                           border: Border.all(
                               color: const Color(0xFFE57373).withOpacity(0.2)),
                         ),
-                        child: const Icon(
-                          Icons.delete_outline_rounded,
-                          color: Color(0xFFE57373),
-                          size: 18,
-                        ),
+                        child: const Icon(Icons.delete_outline_rounded,
+                            color: Color(0xFFE57373), size: 18),
                       ),
                     ),
                     const SizedBox(width: 8),

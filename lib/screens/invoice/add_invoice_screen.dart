@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 
 class AddInvoiceScreen extends StatefulWidget {
   final String vehicleId;
+  final String? invoiceId;
+  final Map<String, dynamic>? existingData;
 
   const AddInvoiceScreen({
     super.key,
     required this.vehicleId,
+    this.invoiceId,
+    this.existingData,
   });
 
   @override
@@ -14,28 +18,53 @@ class AddInvoiceScreen extends StatefulWidget {
 }
 
 class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
-  final kmController = TextEditingController();
+  final kmController            = TextEditingController();
   final nextOilChangeController = TextEditingController();
-  final advanceController = TextEditingController();
+  final advanceController       = TextEditingController();
 
   List<Map<String, TextEditingController>> services = [];
 
-  bool isLoading = false;
-  int totalAmount = 0;
-  int advanceAmount = 0;
+  bool isLoading     = false;
+  int  totalAmount   = 0;
+  int  advanceAmount = 0;
 
-  static const _bg = Color(0xFF0F0F0F);
-  static const _surface = Color(0xFF141414);
-  static const _border = Color(0xFF2E2E2E);
-  static const _amber = Color(0xFFF7A824);
-  static const _amberDim = Color(0xFF1A1208);
+  bool get isEditing => widget.invoiceId != null;
+
+  static const _bg          = Color(0xFF0F0F0F);
+  static const _surface     = Color(0xFF141414);
+  static const _border      = Color(0xFF2E2E2E);
+  static const _amber       = Color(0xFFF7A824);
+  static const _amberDim    = Color(0xFF1A1208);
   static const _textPrimary = Color(0xFFFFFFFF);
-  static const _textMuted = Color(0xFF888888);
+  static const _textMuted   = Color(0xFF888888);
 
   @override
   void initState() {
     super.initState();
-    addServiceRow();
+    if (isEditing && widget.existingData != null) {
+      _prefill(widget.existingData!);
+    } else {
+      addServiceRow();
+    }
+  }
+
+  void _prefill(Map<String, dynamic> data) {
+    kmController.text            = data['kmTravelled']   ?? '';
+    nextOilChangeController.text = data['nextOilChange'] ?? '';
+    advanceAmount                = (data['advanceAmount'] as num?)?.toInt() ?? 0;
+    advanceController.text       = advanceAmount > 0 ? '$advanceAmount' : '';
+
+    final items = data['items'] as List? ?? [];
+    for (final item in items) {
+      services.add({
+        'service':  TextEditingController(text: item['service']  ?? ''),
+        'quantity': TextEditingController(text: '${item['quantity'] ?? 1}'),
+        'rate':     TextEditingController(text: '${item['rate']   ?? 0}'),
+        'amount':   TextEditingController(text: '${item['amount'] ?? 0}'),
+      });
+    }
+    if (services.isEmpty) addServiceRow();
+    calculateTotal();
   }
 
   @override
@@ -43,109 +72,83 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     kmController.dispose();
     nextOilChangeController.dispose();
     advanceController.dispose();
-
     for (var item in services) {
       item['service']?.dispose();
       item['quantity']?.dispose();
       item['rate']?.dispose();
       item['amount']?.dispose();
     }
-
     super.dispose();
   }
 
   void addServiceRow() {
     services.add({
-      'service': TextEditingController(),
+      'service':  TextEditingController(),
       'quantity': TextEditingController(text: '1'),
-      'rate': TextEditingController(),
-      'amount': TextEditingController(),
+      'rate':     TextEditingController(),
+      'amount':   TextEditingController(),
     });
-
     setState(() {});
   }
 
   void calculateTotal() {
     int total = 0;
-
     for (var item in services) {
-      int qty = int.tryParse(item['quantity']!.text.trim()) ?? 0;
-      int rate = int.tryParse(item['rate']!.text.trim()) ?? 0;
+      int qty    = int.tryParse(item['quantity']!.text.trim()) ?? 0;
+      int rate   = int.tryParse(item['rate']!.text.trim())     ?? 0;
       int amount = qty * rate;
-
       item['amount']!.value = TextEditingValue(
-        text: amount.toString(),
-        selection: TextSelection.collapsed(
-          offset: amount.toString().length,
-        ),
+        text:      amount.toString(),
+        selection: TextSelection.collapsed(offset: amount.toString().length),
       );
-
       total += amount;
     }
-
-    setState(() {
-      totalAmount = total;
-    });
+    setState(() => totalAmount = total);
   }
 
   void deleteRow(int index) {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: _border),
+      builder: (context) => AlertDialog(
+        backgroundColor: _surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: _border),
+        ),
+        title: const Text(
+          'Delete Row',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        content: const Text(
+          'Delete this service row?',
+          style: TextStyle(color: _textMuted, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: _textMuted)),
           ),
-          title: const Text(
-            'Delete Row',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: const Text(
-            'Delete this service row?',
-            style: TextStyle(
-              color: _textMuted,
-              fontSize: 13,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: _textMuted),
+          TextButton(
+            onPressed: () {
+              services[index]['service']?.dispose();
+              services[index]['quantity']?.dispose();
+              services[index]['rate']?.dispose();
+              services[index]['amount']?.dispose();
+              services.removeAt(index);
+              calculateTotal();
+              Navigator.pop(context);
+              setState(() {});
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Color(0xFFEF9A9A),
+                fontWeight: FontWeight.w600,
               ),
             ),
-            TextButton(
-              onPressed: () {
-                services[index]['service']?.dispose();
-                services[index]['quantity']?.dispose();
-                services[index]['rate']?.dispose();
-                services[index]['amount']?.dispose();
-
-                services.removeAt(index);
-
-                calculateTotal();
-
-                Navigator.pop(context);
-
-                setState(() {});
-              },
-              child: const Text(
-                'Delete',
-                style: TextStyle(
-                  color: Color(0xFFEF9A9A),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -167,37 +170,47 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       );
       return;
     }
+
     try {
       setState(() => isLoading = true);
 
       List<Map<String, dynamic>> invoiceItems = [];
-
       for (var item in services) {
         invoiceItems.add({
-          'service': item['service']!.text.trim(),
+          'service':  item['service']!.text.trim(),
           'quantity': int.tryParse(item['quantity']!.text.trim()) ?? 0,
-          'rate': int.tryParse(item['rate']!.text.trim()) ?? 0,
-          'amount': int.tryParse(item['amount']!.text.trim()) ?? 0,
+          'rate':     int.tryParse(item['rate']!.text.trim())     ?? 0,
+          'amount':   int.tryParse(item['amount']!.text.trim())   ?? 0,
         });
       }
 
-      await FirebaseFirestore.instance
+      final payload = {
+        'kmTravelled':   kmController.text.trim(),
+        'nextOilChange': nextOilChangeController.text.trim(),
+        'items':         invoiceItems,
+        'totalAmount':   totalAmount,
+        'advanceAmount': advanceAmount,
+        'balanceDue':    totalAmount - advanceAmount,
+        'date':          DateTime.now().toString().substring(0, 10),
+      };
+
+      final col = FirebaseFirestore.instance
           .collection('vehicles')
           .doc(widget.vehicleId)
-          .collection('invoices')
-          .add({
-        'kmTravelled': kmController.text.trim(),
-        'nextOilChange': nextOilChangeController.text.trim(),
-        'items': invoiceItems,
-        'totalAmount': totalAmount,
-        'advanceAmount': advanceAmount,
-        'balanceDue': totalAmount - advanceAmount,
-        'createdAt': Timestamp.now(),
-        'date': DateTime.now().toString().substring(0, 10),
-      });
+          .collection('invoices');
+
+      if (isEditing) {
+        // Update existing document using the Firestore ID
+        await col.doc(widget.invoiceId).update(payload);
+      } else {
+        // Create new document — Firestore generates the ID
+        await col.add({
+          ...payload,
+          'createdAt': Timestamp.now(),
+        });
+      }
 
       if (!mounted) return;
-
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -208,9 +221,9 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
             borderRadius: BorderRadius.circular(12),
             side: const BorderSide(color: _border),
           ),
-          content: const Text(
-            'Invoice saved successfully',
-            style: TextStyle(color: Colors.white),
+          content: Text(
+            isEditing ? 'Invoice updated successfully' : 'Invoice saved successfully',
+            style: const TextStyle(color: Colors.white),
           ),
         ),
       );
@@ -218,10 +231,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: _surface,
-          content: Text(
-            e.toString(),
-            style: const TextStyle(color: Colors.white),
-          ),
+          content: Text(e.toString(),
+              style: const TextStyle(color: Colors.white)),
         ),
       );
     }
@@ -229,64 +240,44 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     setState(() => isLoading = false);
   }
 
-  InputDecoration inputDecoration({
-    required String hint,
-    IconData? icon,
-  }) {
+  InputDecoration inputDecoration({required String hint, IconData? icon}) {
     return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(
-        color: _textMuted,
-        fontSize: 13,
-      ),
+      hintText:  hint,
+      hintStyle: const TextStyle(color: _textMuted, fontSize: 13),
       prefixIcon: icon != null
-          ? Icon(
-        icon,
-        color: _amber,
-        size: 20,
-      )
+          ? Icon(icon, color: _amber, size: 20)
           : null,
-      filled: true,
-      fillColor: _surface,
+      filled:      true,
+      fillColor:   _surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _border),
+        borderSide:   const BorderSide(color: _border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: _amber,
-          width: 1.2,
-        ),
+        borderSide:   const BorderSide(color: _amber, width: 1.2),
       ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 
   InputDecoration compactInputDecoration({required String hint}) {
     return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(
-        color: _textMuted,
-        fontSize: 12,
-      ),
-      filled: true,
-      fillColor: Color(0xFF1C1C1C),
+      hintText:  hint,
+      hintStyle: const TextStyle(color: _textMuted, fontSize: 12),
+      filled:      true,
+      fillColor:   const Color(0xFF1C1C1C),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: _border),
+        borderSide:   const BorderSide(color: _border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: _amber, width: 1.2),
+        borderSide:   const BorderSide(color: _amber, width: 1.2),
       ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
     );
   }
 
@@ -301,16 +292,13 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: _textPrimary,
-            size: 20,
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: _textPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Add Invoice',
-          style: TextStyle(
+        title: Text(
+          isEditing ? 'Edit Invoice' : 'Add Invoice',
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -318,10 +306,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: _border,
-            height: 0.5,
-          ),
+          child: Container(color: _border, height: 0.5),
         ),
       ),
       body: SingleChildScrollView(
@@ -336,14 +321,12 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
               decoration: BoxDecoration(
                 color: _amberDim,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: _amber.withOpacity(0.3),
-                ),
+                border: Border.all(color: _amber.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
+                children: [
+                  const Text(
                     'INVOICE',
                     style: TextStyle(
                       color: _amber,
@@ -352,19 +335,21 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                       letterSpacing: 1.2,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
-                    'Service Billing',
-                    style: TextStyle(
+                    isEditing ? 'Edit Invoice' : 'Service Billing',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    'Create a workshop invoice',
-                    style: TextStyle(
+                    isEditing
+                        ? 'Update this workshop invoice'
+                        : 'Create a workshop invoice',
+                    style: const TextStyle(
                       color: Color(0xFF9A7E4A),
                       fontSize: 12,
                     ),
@@ -384,10 +369,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                 letterSpacing: 1.2,
               ),
             ),
-
             const SizedBox(height: 12),
 
-            /// KM FIELD
             TextField(
               controller: kmController,
               keyboardType: TextInputType.number,
@@ -397,10 +380,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                 icon: Icons.speed_rounded,
               ),
             ),
-
             const SizedBox(height: 14),
 
-            /// NEXT OIL CHANGE FIELD
             TextField(
               controller: nextOilChangeController,
               keyboardType: TextInputType.number,
@@ -422,185 +403,148 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                 letterSpacing: 1.2,
               ),
             ),
-
             const SizedBox(height: 10),
 
             /// SERVICE ROWS
             Column(
-              children: List.generate(
-                services.length,
-                    (index) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        /// LINE 1 — Service name + delete button
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: services[index]['service'],
-                                textCapitalization:
-                                TextCapitalization.characters,
-                                onChanged: (value) {
-                                  services[index]['service']!.value =
-                                      TextEditingValue(
-                                        text: value.toUpperCase(),
-                                        selection: TextSelection.collapsed(
-                                          offset: value.length,
-                                        ),
-                                      );
-                                },
-                                style: const TextStyle(color: _textPrimary),
-                                decoration: compactInputDecoration(
-                                  hint: 'Service name',
-                                ),
-                              ),
+              children: List.generate(services.length, (index) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: services[index]['service'],
+                              textCapitalization: TextCapitalization.characters,
+                              onChanged: (value) {
+                                services[index]['service']!.value =
+                                    TextEditingValue(
+                                      text:      value.toUpperCase(),
+                                      selection: TextSelection.collapsed(
+                                          offset: value.length),
+                                    );
+                              },
+                              style: const TextStyle(color: _textPrimary),
+                              decoration:
+                              compactInputDecoration(hint: 'Service name'),
                             ),
-                            const SizedBox(width: 10),
-                            GestureDetector(
-                              onTap: () => deleteRow(index),
-                              child: Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF9A9A)
-                                      .withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: () => deleteRow(index),
+                            child: Container(
+                              width:  38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF9A9A).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
                                     color: const Color(0xFFEF9A9A)
-                                        .withOpacity(0.2),
-                                  ),
+                                        .withOpacity(0.2)),
+                              ),
+                              child: const Icon(Icons.delete_outline_rounded,
+                                  color: Color(0xFFEF9A9A), size: 18),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          // QTY
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Qty',
+                                    style: TextStyle(
+                                        color: _textMuted,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 4),
+                                TextField(
+                                  controller: services[index]['quantity'],
+                                  keyboardType: TextInputType.number,
+                                  style: const TextStyle(
+                                      color: _textPrimary, fontSize: 13),
+                                  onChanged: (_) => calculateTotal(),
+                                  decoration:
+                                  compactInputDecoration(hint: '0'),
                                 ),
-                                child: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: Color(0xFFEF9A9A),
-                                  size: 18,
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // RATE
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Rate',
+                                    style: TextStyle(
+                                        color: _textMuted,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 4),
+                                TextField(
+                                  controller: services[index]['rate'],
+                                  keyboardType: TextInputType.number,
+                                  style: const TextStyle(
+                                      color: _textPrimary, fontSize: 13),
+                                  onChanged: (_) => calculateTotal(),
+                                  decoration:
+                                  compactInputDecoration(hint: '0'),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        /// LINE 2 — Qty, Rate, Amount
-                        Row(
-                          children: [
-                            /// QTY
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Qty',
+                          ),
+                          const SizedBox(width: 8),
+                          // AMOUNT
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Amount',
                                     style: TextStyle(
-                                      color: _textMuted,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  TextField(
-                                    controller: services[index]['quantity'],
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(
-                                      color: _textPrimary,
-                                      fontSize: 13,
-                                    ),
-                                    onChanged: (_) => calculateTotal(),
-                                    decoration: compactInputDecoration(
-                                      hint: '0',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-
-                            /// RATE
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Rate',
-                                    style: TextStyle(
-                                      color: _textMuted,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  TextField(
-                                    controller: services[index]['rate'],
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(
-                                      color: _textPrimary,
-                                      fontSize: 13,
-                                    ),
-                                    onChanged: (_) => calculateTotal(),
-                                    decoration: compactInputDecoration(
-                                      hint: '0',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-
-                            /// AMOUNT
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Amount',
-                                    style: TextStyle(
-                                      color: _textMuted,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  TextField(
-                                    controller: services[index]['amount'],
-                                    enabled: false,
-                                    style: const TextStyle(
+                                        color: _textMuted,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 4),
+                                TextField(
+                                  controller: services[index]['amount'],
+                                  enabled: false,
+                                  style: const TextStyle(
                                       color: _amber,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                    decoration: compactInputDecoration(
-                                      hint: '0',
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                      fontSize: 13),
+                                  decoration:
+                                  compactInputDecoration(hint: '0'),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ),
 
             const SizedBox(height: 6),
 
             /// ADD SERVICE BUTTON
             SizedBox(
-              width: double.infinity,
+              width:  double.infinity,
               height: 52,
               child: ElevatedButton.icon(
                 onPressed: addServiceRow,
@@ -613,19 +557,14 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                     side: const BorderSide(color: _border),
                   ),
                 ),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text(
-                  'Add Service Row',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                icon:  const Icon(Icons.add_rounded),
+                label: const Text('Add Service Row',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
 
             const SizedBox(height: 28),
 
-            /// PAYMENT SECTION LABEL
             const Text(
               'PAYMENT',
               style: TextStyle(
@@ -635,10 +574,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                 letterSpacing: 1.2,
               ),
             ),
-
             const SizedBox(height: 12),
 
-            /// ADVANCE PAYMENT FIELD
             TextField(
               controller: advanceController,
               keyboardType: TextInputType.number,
@@ -659,8 +596,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
             /// TOTAL CARD
             Container(
               width: double.infinity,
-              padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               decoration: BoxDecoration(
                 color: _amberDim,
                 borderRadius: BorderRadius.circular(18),
@@ -668,7 +604,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
               ),
               child: Column(
                 children: [
-                  /// Total Amount row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -691,13 +626,10 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                       ),
                     ],
                   ),
-
                   if (advanceAmount > 0) ...[
                     const SizedBox(height: 12),
                     Container(height: 0.5, color: _amber.withOpacity(0.2)),
                     const SizedBox(height: 12),
-
-                    /// Advance Paid row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -720,12 +652,9 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 12),
                     Container(height: 0.5, color: _amber.withOpacity(0.2)),
                     const SizedBox(height: 12),
-
-                    /// Balance Due row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -757,9 +686,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                       child: Text(
                         'All services combined',
                         style: TextStyle(
-                          color: Color(0xFF6B5A3A),
-                          fontSize: 11,
-                        ),
+                            color: Color(0xFF6B5A3A), fontSize: 11),
                       ),
                     ),
                   ],
@@ -769,15 +696,15 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
 
             const SizedBox(height: 20),
 
-            /// SAVE BUTTON
+            /// SAVE / UPDATE BUTTON
             SizedBox(
-              width: double.infinity,
+              width:  double.infinity,
               height: 56,
               child: ElevatedButton(
                 onPressed: isLoading ? null : saveInvoice,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _amber,
-                  foregroundColor: Colors.black,
+                  backgroundColor:         _amber,
+                  foregroundColor:         Colors.black,
                   disabledBackgroundColor: _amber.withOpacity(0.5),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -786,16 +713,16 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                 ),
                 child: isLoading
                     ? const SizedBox(
-                  width: 22,
+                  width:  22,
                   height: 22,
-                  child: CircularProgressIndicator(
+                  child:  CircularProgressIndicator(
                     strokeWidth: 2.5,
                     color: Colors.black,
                   ),
                 )
-                    : const Text(
-                  'Save Invoice',
-                  style: TextStyle(
+                    : Text(
+                  isEditing ? 'Update Invoice' : 'Save Invoice',
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
