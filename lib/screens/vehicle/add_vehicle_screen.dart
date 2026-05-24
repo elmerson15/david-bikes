@@ -39,7 +39,9 @@ class _AddVehicleScreenState
       });
 
       String customerName =
-      customerNameController.text.trim();
+      customerNameController.text
+          .trim()
+          .toUpperCase();
 
       String phone =
       phoneController.text.trim();
@@ -290,17 +292,28 @@ class _AddVehicleScreenState
               const SizedBox(height: 16),
 
               TextField(
-
                 controller: customerNameController,
+
+                textCapitalization: TextCapitalization.characters,
 
                 style: const TextStyle(
                   color: _textPrimary,
                 ),
 
+                onChanged: (value) {
+                  String formatted = value.toUpperCase();
+
+                  customerNameController.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.collapsed(
+                      offset: formatted.length,
+                    ),
+                  );
+                },
+
                 decoration: inputDecoration(
                   label: "Customer Name",
-                  icon:
-                  Icons.person_outline_rounded,
+                  icon: Icons.person_outline_rounded,
                 ),
               ),
 
