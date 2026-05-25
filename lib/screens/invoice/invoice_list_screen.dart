@@ -25,6 +25,34 @@ class InvoiceListScreen extends StatelessWidget {
   static const _textPrimary = Color(0xFFE0E0E0);
   static const _textMuted   = Color(0xFF555555);
 
+  /// Converts any stored date string into DD-MM-YYYY.
+  /// Handles "YYYY-MM-DD", "DD/MM/YYYY", "DD-MM-YYYY", and Timestamps.
+  static String _formatDate(dynamic raw) {
+    if (raw == null) return 'No Date';
+    // Firestore Timestamp
+    if (raw is Timestamp) {
+      final dt = raw.toDate();
+      return '${dt.day.toString().padLeft(2, '0')}-'
+          '${dt.month.toString().padLeft(2, '0')}-'
+          '${dt.year.toString().substring(2)}';
+    }
+    final s = raw.toString().trim();
+    // YYYY-MM-DD  →  DD-MM-YYYY
+    final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+    final isoMatch = iso.firstMatch(s);
+    if (isoMatch != null) {
+      return '${isoMatch.group(3)}-${isoMatch.group(2)}-${isoMatch.group(1)!.substring(2)}';
+    }
+    // DD/MM/YYYY  →  DD-MM-YYYY
+    final slash = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
+    final slashMatch = slash.firstMatch(s);
+    if (slashMatch != null) {
+      return '${slashMatch.group(1)}-${slashMatch.group(2)}-${slashMatch.group(3)}';
+    }
+    // Already DD-MM-YYYY or unrecognised — return as-is
+    return s;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,17 +143,17 @@ class InvoiceListScreen extends StatelessWidget {
             itemCount: invoices.length,
             itemBuilder: (context, index) {
               final invoice = invoices[index];
-              final date    = invoice.data().toString().contains('date')
-                  ? invoice['date']
-                  : 'No Date';
+              final data    = invoice.data() as Map<String, dynamic>;
+              // ── FIX: formatted date ──────────────────────────────────────
+              final date = _formatDate(data['date']);
 
               return _InvoiceCard(
-                invoice:      invoice,
-                date:         date,
-                customerName: customerName,
-                phone:        phone,
+                invoice:       invoice,
+                date:          date,
+                customerName:  customerName,
+                phone:         phone,
                 vehicleNumber: vehicleNumber,
-                vehicleId:    vehicleId,
+                vehicleId:     vehicleId,
               );
             },
           );
@@ -208,7 +236,7 @@ class _InvoiceCard extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => AddInvoiceScreen(
           vehicleId:    vehicleId,
-          invoiceId:    invoice.id,                          // Firestore auto-generated ID
+          invoiceId:    invoice.id,
           existingData: invoice.data() as Map<String, dynamic>,
         ),
       ),
@@ -272,26 +300,34 @@ class _InvoiceCard extends StatelessWidget {
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 5),
+                      // ── FIX: overflow-safe km + date row ────────────────
                       Row(
                         children: [
                           const Icon(Icons.speed_rounded,
                               color: Colors.white, size: 13),
                           const SizedBox(width: 4),
-                          Text(
-                            '${invoice['kmTravelled']} km',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
+                          Flexible(
+                            child: Text(
+                              '${invoice['kmTravelled']} km',
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           const Icon(Icons.calendar_today_rounded,
                               color: Colors.white, size: 12),
                           const SizedBox(width: 4),
-                          Text(
-                            date,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
+                          Flexible(
+                            child: Text(
+                              date,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
