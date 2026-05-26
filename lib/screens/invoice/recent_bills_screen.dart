@@ -21,8 +21,11 @@ class RecentBillsScreen extends StatelessWidget {
         backgroundColor: _bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: _textPrimary, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: _textPrimary,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -39,9 +42,7 @@ class RecentBillsScreen extends StatelessWidget {
         ),
       ),
       body: StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collectionGroup('invoices')
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collectionGroup('invoices').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -62,8 +63,11 @@ class RecentBillsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: _border),
                     ),
-                    child: const Icon(Icons.receipt_long_rounded,
-                        color: _textMuted, size: 28),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: _textMuted,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -77,7 +81,10 @@ class RecentBillsScreen extends StatelessWidget {
                   const SizedBox(height: 6),
                   const Text(
                     'Recent invoices will appear here',
-                    style: TextStyle(color: _textMuted, fontSize: 12),
+                    style: TextStyle(
+                      color: _textMuted,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -100,10 +107,9 @@ class RecentBillsScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final invoice = invoices[index];
               final data = invoice.data() as Map<String, dynamic>;
-              final date = data.containsKey('date') ? invoice['date'] : 'No Date';
+              final date =
+              data.containsKey('date') ? invoice['date'] : 'No Date';
 
-              // ── The name is on the PARENT vehicle document, not the invoice.
-              // invoice.reference.parent.parent gives us the vehicle document ref.
               return FutureBuilder<DocumentSnapshot>(
                 future: invoice.reference.parent.parent!.get(),
                 builder: (context, customerSnap) {
@@ -111,15 +117,19 @@ class RecentBillsScreen extends StatelessWidget {
                   String phone = '';
                   String vehicleNumber = '';
 
-                  if (customerSnap.connectionState == ConnectionState.done) {
-                    if (customerSnap.hasData && customerSnap.data!.exists) {
+                  if (customerSnap.connectionState ==
+                      ConnectionState.done) {
+                    if (customerSnap.hasData &&
+                        customerSnap.data!.exists) {
                       final customerData =
-                      customerSnap.data!.data() as Map<String, dynamic>;
+                      customerSnap.data!.data()
+                      as Map<String, dynamic>;
 
-                      // These match your Firebase field names exactly
-                      customerName = customerData['customerName'] ?? 'Unknown';
+                      customerName =
+                          customerData['customerName'] ?? 'Unknown';
                       phone = customerData['phone'] ?? '';
-                      vehicleNumber = customerData['vehicleNumber'] ?? '';
+                      vehicleNumber =
+                          customerData['vehicleNumber'] ?? '';
                     } else {
                       customerName = 'Unknown';
                     }
@@ -161,13 +171,9 @@ class _BillCard extends StatelessWidget {
   static const _border = Color(0xFF222222);
   static const _amber = Color(0xFFF7A824);
   static const _amberDim = Color(0xFF1A1208);
-  static const _textMuted = Color(0xFF555555);
-  static const _divider = Color(0xFF1E1E1E);
 
   @override
   Widget build(BuildContext context) {
-    final items = invoice['items'] as List;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: GestureDetector(
@@ -190,155 +196,112 @@ class _BillCard extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment:
+              MainAxisAlignment.spaceBetween,
               children: [
-
-                /// TOP ROW — name + date
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: _amberDim,
+                        borderRadius:
+                        BorderRadius.circular(12),
+                        border: Border.all(
+                          color:
+                          _amber.withOpacity(0.25),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long_rounded,
+                        color: _amber,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: _amberDim,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: _amber.withOpacity(0.25)),
-                          ),
-                          child: const Icon(
-                            Icons.receipt_long_rounded,
-                            color: _amber,
-                            size: 20,
+                        Text(
+                          customerName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight:
+                            FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 2),
+                        Text(
+                          'Rs. ${invoice['totalAmount']}',
+                          style: const TextStyle(
+                            color: _amber,
+                            fontSize: 13,
+                            fontWeight:
+                            FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
                           children: [
-                            Text(
-                              customerName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            const Icon(
+                              Icons.speed_rounded,
+                              color: Colors.white54,
+                              size: 12,
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(width: 4),
                             Text(
-                              'Rs. ${invoice['totalAmount']}',
-                              style: const TextStyle(
-                                color: Color(0xFFF7A824),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                              '${invoice['kmTravelled']} km',
+                              style:
+                              const TextStyle(
+                                color:
+                                Colors.white54,
+                                fontSize: 12,
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                const Icon(Icons.speed_rounded,
-                                    color: Colors.white54, size: 12),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${invoice['kmTravelled']} km',
-                                  style: const TextStyle(
-                                      color: Colors.white54, fontSize: 12),
-                                ),
-                              ],
                             ),
                           ],
                         ),
                       ],
                     ),
-
-                    /// DATE BADGE
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: _amberDim,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: _amber.withOpacity(0.25)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today_rounded,
-                              color: _amber, size: 11),
-                          const SizedBox(width: 5),
-                          Text(
-                            date,
-                            style: const TextStyle(
-                              color: _amber,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
-
-                const SizedBox(height: 14),
-                Container(height: 0.5, color: _divider),
-                const SizedBox(height: 14),
-
-                /// SERVICES LABEL
-                const Text(
-                  'SERVICES',
-                  style: TextStyle(
-                    color: _textMuted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
+                Container(
+                  padding:
+                  const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
                   ),
-                ),
-
-                const SizedBox(height: 10),
-
-                /// SERVICE ITEMS
-                Column(
-                  children: List.generate(items.length, (i) {
-                    final item = items[i];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item['service'],
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A1A),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: _border),
-                            ),
-                            child: Text(
-                              'Rs. ${item['amount']}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
+                  decoration: BoxDecoration(
+                    color: _amberDim,
+                    borderRadius:
+                    BorderRadius.circular(20),
+                    border: Border.all(
+                      color:
+                      _amber.withOpacity(0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        color: _amber,
+                        size: 11,
                       ),
-                    );
-                  }),
+                      const SizedBox(width: 5),
+                      Text(
+                        date,
+                        style: const TextStyle(
+                          color: _amber,
+                          fontSize: 11,
+                          fontWeight:
+                          FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
