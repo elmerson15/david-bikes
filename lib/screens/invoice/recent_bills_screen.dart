@@ -4,7 +4,6 @@ import 'package:bikes/screens/invoice/invoice_details_screen.dart';
 
 class RecentBillsScreen extends StatelessWidget {
   const RecentBillsScreen({super.key});
-
   static const _bg = Color(0xFF0F0F0F);
   static const _surface = Color(0xFF141414);
   static const _border = Color(0xFF222222);
